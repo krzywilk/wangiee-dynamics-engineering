@@ -1,6 +1,7 @@
 import cv2
 
-from player_tracking.player_detection import framewise_difference_segmentation, blob_2_players_detection
+from player_tracking.player_detection import framewise_difference_segmentation, blob_2_players_detection, \
+    player_backwards_bbox_tracking
 from video_utils import load_video, draw_players_bboxes
 
 if __name__ == '__main__':
@@ -11,6 +12,7 @@ if __name__ == '__main__':
     difference_segmentation = framewise_difference_segmentation(frames)
     players_detections = blob_2_players_detection(difference_segmentation)
     processed_frames = draw_players_bboxes(frames, players_detections)
+    player_backwards_bbox_tracking(players_detections,frames)
     for frame in processed_frames:
         cv2.imshow("players detection",frame)
         cv2.waitKey()
