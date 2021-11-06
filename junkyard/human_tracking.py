@@ -6,8 +6,9 @@ import numpy as np
 import math
 import heapq
 
+from bbox_utils import bb_intersection
 from detections.player_detection import framewise_difference_segmentation, two_players_blob_detection
-from detections.table_detection import table_rectangle
+from detections.table_detection import table_rectangle, table_detection, detect_intersection_points
 from video_utils import load_video, draw_players_bboxes
 
 
@@ -327,42 +328,110 @@ if __name__ == "__main__":
     previous_frame = np.ones_like(frames[0])
     lines_windowed = []
     aa = []
+    ratios = []
+    table_mask = table_detection(frames)
+    table_intersection_points, centroid = detect_intersection_points(table_mask)
     difference_segmentation = framewise_difference_segmentation(frames)
     for i, mask in enumerate(difference_segmentation):
         if i == 0:
             continue
+        if i==145:
+            print()
         # mask = cv2.erode(mask, np.ones((3, 3)), iterations=1)
         # mask = cv2.dilate(mask, np.ones((10, 6)), iterations=1)
-        output = cv2.connectedComponentsWithStats(
-            mask[:, :, 0])
+        output_bottom = cv2.connectedComponentsWithStats(
+            mask[int(max(table_intersection_points[0][1], table_intersection_points[1][1])):, :, 0])
 
-        (numLabels, labels, stats, centroids) = output
-        players_indexes = [x[0] + 1 for x in
-                           heapq.nlargest(2, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
+        (numLabels, labels, stats, centroids) = output_bottom
+
+        bottom_player = [x[0] + 1 for x in
+                           heapq.nlargest(1, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
+        bottom_player = (stats[bottom_player[0]], centroids[bottom_player[0]])
+        bottom_player[0][cv2.CC_STAT_TOP] = bottom_player[0][cv2.CC_STAT_TOP] + int(max(table_intersection_points[0][1], table_intersection_points[1][1]))
+        bottom_player[1][1] = bottom_player[1][1] + int(max(table_intersection_points[0][1], table_intersection_points[1][1]))
+        msk = mask.copy()
+        bbox_bottom = [bottom_player[0][cv2.CC_STAT_LEFT],bottom_player[0][cv2.CC_STAT_TOP], bottom_player[0][cv2.CC_STAT_LEFT]+bottom_player[0][cv2.CC_STAT_WIDTH],bottom_player[0][cv2.CC_STAT_TOP]+bottom_player[0][cv2.CC_STAT_HEIGHT]]
+
+        msk[bbox_bottom[1]:bbox_bottom[3],bbox_bottom[0]:bbox_bottom[2]]= [0,0,0]
+
+        output_top = cv2.connectedComponentsWithStats(
+            msk[:abs(
+                int(max(table_intersection_points[0][1], table_intersection_points[1][1])) - int(
+                    max(table_intersection_points[2][1], table_intersection_points[3][1]))
+            ) // 2 + int(max(table_intersection_points[0][1], table_intersection_points[1][1])), :, 0])
+        (numLabels, labels, stats, centroids) = output_top
+        top_player = [x[0] + 1 for x in
+                      heapq.nlargest(1, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
+        top_player = (stats[top_player[0]], centroids[top_player[0]])
+
+
+        bbox_top = [top_player[0][cv2.CC_STAT_LEFT],top_player[0][cv2.CC_STAT_TOP], top_player[0][cv2.CC_STAT_LEFT]+top_player[0][cv2.CC_STAT_WIDTH],top_player[0][cv2.CC_STAT_TOP]+top_player[0][cv2.CC_STAT_HEIGHT]]
+        # players_indexes = [x[0] + 1 for x in
+        #                    heapq.nlargest(2, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
+        # if True:
+        #     if centroids[players_indexes[0]][1] < centroids[players_indexes[1]][1]:
+        #         top_player = (stats[players_indexes[0]], centroids[players_indexes[0]])
+        #         bottom_player = (stats[players_indexes[1]], centroids[players_indexes[1]])
+        #     else:
+        #         top_player = (stats[players_indexes[1]], centroids[players_indexes[1]])
+        #         bottom_player = (stats[players_indexes[0]], centroids[players_indexes[0]])
+        ratio = min(
+            [top_player[0][cv2.CC_STAT_AREA], bottom_player[0][cv2.CC_STAT_AREA]]) / max(
+            [top_player[0][cv2.CC_STAT_AREA], bottom_player[0][cv2.CC_STAT_AREA]])
+        ratios.append(ratio)
+        # CC_STAT_AREAprint(ratio)
         box = []
         area = []
-        for j, player in enumerate(stats):
-            x = player[cv2.CC_STAT_LEFT]
-            y = player[cv2.CC_STAT_TOP]
-            w = player[cv2.CC_STAT_WIDTH]
-            h = player[cv2.CC_STAT_HEIGHT]
-            if j in players_indexes:
-                cv2.rectangle(frames[i], (x, y), (x + w, y + h), (255, 0, 0), 4)
-            box.append((x, y, x + w, y + h))
-            area.append( player[cv2.CC_STAT_AREA])
+        # if i == 46:
+        #     print()
+        # if ratio > 0.6:
+        #     if top_player[0][cv2.CC_STAT_AREA] < bottom_player[0][cv2.CC_STAT_AREA]:
+        #         if bottom_player[0][cv2.CC_STAT_TOP] < max(table_intersection_points[0][0],
+        #                                                 table_intersection_points[1][0]) \
+        #                 and bottom_player[0][cv2.CC_STAT_TOP] + bottom_player[0][cv2.CC_STAT_HEIGHT] > max(
+        #                 table_intersection_points[2][1], table_intersection_points[3][1]):
+        #             top_player[0][cv2.CC_STAT_TOP] = bottom_player[0][cv2.CC_STAT_TOP] + player[0][cv2.CC_STAT_HEIGHT] // 2
+        #             top_player[0][cv2.CC_STAT_HEIGHT] = player[0][cv2.CC_STAT_HEIGHT] // 2
+        #             print(i)
+        #     else:
+        #         if top_player[0][cv2.CC_STAT_TOP] < max(table_intersection_points[0][0],
+        #                                                 table_intersection_points[1][0]) \
+        #                 and top_player[0][cv2.CC_STAT_TOP] + top_player[0][cv2.CC_STAT_HEIGHT] > max(
+        #                 table_intersection_points[2][1], table_intersection_points[3][1]):
+        #             bottom_player[0][cv2.CC_STAT_TOP] = top_player[0][cv2.CC_STAT_TOP] + player[0][cv2.CC_STAT_HEIGHT] // 2
+        #             bottom_player[0][cv2.CC_STAT_HEIGHT] = player[0][cv2.CC_STAT_HEIGHT] // 2
+        #             print(i)
+        for j, player in enumerate([top_player, bottom_player]):
+            x = player[0][cv2.CC_STAT_LEFT]
+            y = player[0][cv2.CC_STAT_TOP]
+            w = player[0][cv2.CC_STAT_WIDTH]
+            h = player[0][cv2.CC_STAT_HEIGHT]
+            cv2.rectangle(frames[i], (x, y), (x + w, y + h), (255, 0, 0), 4)
+            area.append(player[0][cv2.CC_STAT_AREA])
 
-        box = non_max_suppression_fast(np.array(box[1:]), 0.8)
-        players_indexes_2 = [x[0] + 1 for x in
-                             heapq.nlargest(2, enumerate(box[1:]), key=lambda x: (x[1][2] - x[1][0]) * (x[1][3] - x[1][1]))]
-        for p in players_indexes_2:
-            player = box[p]
-            x = player[cv2.CC_STAT_LEFT]
-            y = player[cv2.CC_STAT_TOP]
-            w = player[cv2.CC_STAT_WIDTH]
-            h = player[cv2.CC_STAT_HEIGHT]
-            cv2.rectangle(frames[i], (x, y), ( w, h), (0, 255, 0), 2)
+        # box = non_max_suppression_fast(np.array(box[1:]), 0.8)
+        # players_indexes_2 = [x[0] + 1 for x in
+        #                      heapq.nlargest(2, enumerate(box[1:]), key=lambda x: (x[1][2] - x[1][0]) * (x[1][3] - x[1][1]))]
+        # for p in players_indexes_2:
+        #     player = box[p]
+        #     x = player[cv2.CC_STAT_LEFT]
+        #     y = player[cv2.CC_STAT_TOP]
+        #     w = player[cv2.CC_STAT_WIDTH]
+        #     h = player[cv2.CC_STAT_HEIGHT]
+        #     cv2.rectangle(frames[i], (x, y), ( w, h), (0, 255, 0), 2)
 
-            # box.append((x, y,x + w, y + h))
+        # box.append((x, y,x + w, y + h))
     for i, frame in enumerate(frames):
+        print(i, ratios[i])
         cv2.imshow("frame", frame)
+
+        segs = difference_segmentation[i]
+        seg_top = segs[:abs(
+                int(max(table_intersection_points[0][1], table_intersection_points[1][1])) - int(
+                    max(table_intersection_points[2][1], table_intersection_points[3][1]))
+            ) // 2 + int(max(table_intersection_points[0][1], table_intersection_points[1][1])),:,:]
+        cv2.imshow("top seg", seg_top)
+        seg_bot = segs[int(max(table_intersection_points[0][1], table_intersection_points[1][1])):, :, :]
+        cv2.imshow("top bottom", seg_bot)
+
         cv2.waitKey()
