@@ -316,13 +316,34 @@ def non_max_suppression_fast(boxes, overlapThresh):
     return boxes[pick].astype("int")
 
 
+def compute_dense_optical_flow(prev_image, current_image):
+    old_shape = current_image.shape
+    prev_image_gray = cv2.cvtColor(prev_image, cv2.COLOR_BGR2GRAY)
+    current_image_gray = cv2.cvtColor(current_image, cv2.COLOR_BGR2GRAY)
+    assert current_image.shape == old_shape
+    hsv = np.zeros_like(prev_image)
+    hsv[..., 1] = 255
+    flow = None
+    flow = cv2.calcOpticalFlowFarneback(prev=prev_image_gray,
+                                        next=current_image_gray, flow=flow,
+                                        pyr_scale=0.8, levels=15, winsize=50,
+                                        iterations=10, poly_n=5, poly_sigma=0,
+                                        flags=10)
+
+    mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+    hsv[..., 0] = ang * 180 / np.pi / 2
+    hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+    return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+
 from selective_search import *
 
 if __name__ == "__main__":
     test_sample_1 = "../videos/sample_1.mp4"
     # clear_doubled_frames(test_sample_1)
-
+    frames_fore = []
     frames = load_video(test_sample_1)
+    # frames = frames[:100]
     # frames = frames
     line_image_previous = np.ones_like(frames[0])
     previous_frame = np.ones_like(frames[0])
@@ -332,49 +353,127 @@ if __name__ == "__main__":
     table_mask = table_detection(frames)
     table_intersection_points, centroid = detect_intersection_points(table_mask)
     difference_segmentation = framewise_difference_segmentation(frames)
+    feature_params = dict(maxCorners=300, qualityLevel=0.2, minDistance=2, blockSize=3)
+    lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+    object_detector = cv2.createBackgroundSubtractorMOG2(detectShadows=False, varThreshold=32)
+    no_players_segs = []
+    whites = []
+    whites_diffs = []
+    foreground_masks = []
+    flows = []
+
+    foreground_diferences = []
+
+
     for i, mask in enumerate(difference_segmentation):
+        print("START_", i)
         if i == 0:
             continue
-        if i==145:
+        if i == 145:
             print()
-        # mask = cv2.erode(mask, np.ones((3, 3)), iterations=1)
-        # mask = cv2.dilate(mask, np.ones((10, 6)), iterations=1)
+        ff = frames[i].copy()
+        t, thr = cv2.threshold(ff, 170, 255, cv2.THRESH_BINARY)
+        ff[thr.any(axis=2) == False] = [0, 0, 0]
+
+        gray = cv2.cvtColor(frames[i], cv2.COLOR_BGR2GRAY)
+        gray_prev = cv2.cvtColor(frames[i - 1], cv2.COLOR_BGR2GRAY)
+        prev = cv2.goodFeaturesToTrack(gray, mask=None, **feature_params)
+        foreground_mask = object_detector.apply(thr)
+        foreground_mask = cv2.erode(foreground_mask, kernel=np.ones((2, 2)))
+        output = cv2.connectedComponentsWithStats(foreground_mask, 8, cv2.CV_32S)
+        num_labels = output[0]
+        # The second cell is the label matrix
+        labels_fore = output[1]
+        # The third cell is the stat matrix
+        stats_fore = output[2]
+
+        # The fourth cell is the centroid matrix
+        centroids = output[3]
+        f_fore = frames[i].copy()
+
+        f_fore[foreground_mask == 0] = [0, 0, 0]
+
+        frames_fore.append(f_fore)
+        foreground_mask = foreground_mask.astype(bool)
+        foreground_masks.append(foreground_mask)
+
         output_bottom = cv2.connectedComponentsWithStats(
             mask[int(max(table_intersection_points[0][1], table_intersection_points[1][1])):, :, 0])
 
         (numLabels, labels, stats, centroids) = output_bottom
 
         bottom_player = [x[0] + 1 for x in
-                           heapq.nlargest(1, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
+                         heapq.nlargest(1, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
+        labels[labels != bottom_player[0]] = 0
+        labels_bottom = labels.copy()
+        labels_bottom = cv2.erode(labels_bottom.astype(np.uint8), kernel = np.ones((10, 10)))
         bottom_player = (stats[bottom_player[0]], centroids[bottom_player[0]])
-        bottom_player[0][cv2.CC_STAT_TOP] = bottom_player[0][cv2.CC_STAT_TOP] + int(max(table_intersection_points[0][1], table_intersection_points[1][1]))
-        bottom_player[1][1] = bottom_player[1][1] + int(max(table_intersection_points[0][1], table_intersection_points[1][1]))
+        bottom_player[0][cv2.CC_STAT_TOP] = bottom_player[0][cv2.CC_STAT_TOP] + int(
+            max(table_intersection_points[0][1], table_intersection_points[1][1]))
+        bottom_player[1][1] = bottom_player[1][1] + int(
+            max(table_intersection_points[0][1], table_intersection_points[1][1]))
         msk = mask.copy()
-        bbox_bottom = [bottom_player[0][cv2.CC_STAT_LEFT],bottom_player[0][cv2.CC_STAT_TOP], bottom_player[0][cv2.CC_STAT_LEFT]+bottom_player[0][cv2.CC_STAT_WIDTH],bottom_player[0][cv2.CC_STAT_TOP]+bottom_player[0][cv2.CC_STAT_HEIGHT]]
+        bbox_bottom = [bottom_player[0][cv2.CC_STAT_LEFT], bottom_player[0][cv2.CC_STAT_TOP],
+                       bottom_player[0][cv2.CC_STAT_LEFT] + bottom_player[0][cv2.CC_STAT_WIDTH],
+                       bottom_player[0][cv2.CC_STAT_TOP] + bottom_player[0][cv2.CC_STAT_HEIGHT]]
 
-        msk[bbox_bottom[1]:bbox_bottom[3],bbox_bottom[0]:bbox_bottom[2]]= [0,0,0]
-
+        msk[bbox_bottom[1]:bbox_bottom[3], bbox_bottom[0]:bbox_bottom[2]] = [0, 0, 0]
         output_top = cv2.connectedComponentsWithStats(
             msk[:abs(
                 int(max(table_intersection_points[0][1], table_intersection_points[1][1])) - int(
                     max(table_intersection_points[2][1], table_intersection_points[3][1]))
             ) // 2 + int(max(table_intersection_points[0][1], table_intersection_points[1][1])), :, 0])
         (numLabels, labels, stats, centroids) = output_top
+
         top_player = [x[0] + 1 for x in
                       heapq.nlargest(1, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
+        labels[labels != top_player[0]] = 0
+        labels_top = labels.copy()
+        labels_top = cv2.erode(labels_top.astype(np.uint8), kernel=np.ones((10, 10)))
+        ff[:abs(
+                int(max(table_intersection_points[0][1], table_intersection_points[1][1])) - int(
+                    max(table_intersection_points[2][1], table_intersection_points[3][1]))
+            ) // 2 + int(max(table_intersection_points[0][1], table_intersection_points[1][1])), :,:][labels_top != 0] = 0
+        ff[int(max(table_intersection_points[0][1], table_intersection_points[1][1])):, :, :][labels_bottom != 0] = 0
+        # ff = ff[int(min(table_intersection_points[0][1], table_intersection_points[1][1])):int(
+        #     max(table_intersection_points[2][1], table_intersection_points[3][1])),
+        #      int(min(table_intersection_points[0][0], table_intersection_points[3][0])):int(
+        #          max(table_intersection_points[1][0], table_intersection_points[2][0]))]
+        whites.append(ff)
+
+
         top_player = (stats[top_player[0]], centroids[top_player[0]])
+        f_fore[:abs(
+                int(max(table_intersection_points[0][1], table_intersection_points[1][1])) - int(
+                    max(table_intersection_points[2][1], table_intersection_points[3][1]))
+            ) // 2 + int(max(table_intersection_points[0][1], table_intersection_points[1][1])), :,:][labels_top!=0] = 0
+        f_fore[int(max(table_intersection_points[0][1], table_intersection_points[1][1])):, :, :][labels_bottom!=0] = 0
+
+        if len(frames_fore) > 1:
+            fore_diff = cv2.absdiff(frames_fore[-2],  f_fore)
+            fore_diff[fore_diff < 10] = 0
+            frame_delta_single_channel = cv2.cvtColor(fore_diff, cv2.COLOR_BGR2GRAY)
+            frame_delta_single_channel = cv2.dilate(frame_delta_single_channel, np.ones((15,15)), iterations=1)
+            foreground_diferences.append(frame_delta_single_channel)
+            test_im = frames[i].copy()
+            test_im[frame_delta_single_channel == 0] = 0
+            test_im[:abs(
+                int(max(table_intersection_points[0][1], table_intersection_points[1][1])) - int(
+                    max(table_intersection_points[2][1], table_intersection_points[3][1]))
+            ) // 2 + int(max(table_intersection_points[0][1], table_intersection_points[1][1])), :, :][
+                labels_top != 0] = 0
+            test_im[int(max(table_intersection_points[0][1], table_intersection_points[1][1])):, :, :][
+                labels_bottom != 0] = 0
+            # cv2.imshow("", test_im)
+            # cv2.waitKey()
 
 
-        bbox_top = [top_player[0][cv2.CC_STAT_LEFT],top_player[0][cv2.CC_STAT_TOP], top_player[0][cv2.CC_STAT_LEFT]+top_player[0][cv2.CC_STAT_WIDTH],top_player[0][cv2.CC_STAT_TOP]+top_player[0][cv2.CC_STAT_HEIGHT]]
-        # players_indexes = [x[0] + 1 for x in
-        #                    heapq.nlargest(2, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
-        # if True:
-        #     if centroids[players_indexes[0]][1] < centroids[players_indexes[1]][1]:
-        #         top_player = (stats[players_indexes[0]], centroids[players_indexes[0]])
-        #         bottom_player = (stats[players_indexes[1]], centroids[players_indexes[1]])
-        #     else:
-        #         top_player = (stats[players_indexes[1]], centroids[players_indexes[1]])
-        #         bottom_player = (stats[players_indexes[0]], centroids[players_indexes[0]])
+        bbox_top = [top_player[0][cv2.CC_STAT_LEFT], top_player[0][cv2.CC_STAT_TOP],
+                    top_player[0][cv2.CC_STAT_LEFT] + top_player[0][cv2.CC_STAT_WIDTH],
+                    top_player[0][cv2.CC_STAT_TOP] + top_player[0][cv2.CC_STAT_HEIGHT]]
+        msk[bbox_top[1]:bbox_bottom[3], bbox_top[0]:bbox_top[2]] = [0, 0, 0]
+        no_players_segs.append(msk)
+
         ratio = min(
             [top_player[0][cv2.CC_STAT_AREA], bottom_player[0][cv2.CC_STAT_AREA]]) / max(
             [top_player[0][cv2.CC_STAT_AREA], bottom_player[0][cv2.CC_STAT_AREA]])
@@ -382,56 +481,97 @@ if __name__ == "__main__":
         # CC_STAT_AREAprint(ratio)
         box = []
         area = []
-        # if i == 46:
-        #     print()
-        # if ratio > 0.6:
-        #     if top_player[0][cv2.CC_STAT_AREA] < bottom_player[0][cv2.CC_STAT_AREA]:
-        #         if bottom_player[0][cv2.CC_STAT_TOP] < max(table_intersection_points[0][0],
-        #                                                 table_intersection_points[1][0]) \
-        #                 and bottom_player[0][cv2.CC_STAT_TOP] + bottom_player[0][cv2.CC_STAT_HEIGHT] > max(
-        #                 table_intersection_points[2][1], table_intersection_points[3][1]):
-        #             top_player[0][cv2.CC_STAT_TOP] = bottom_player[0][cv2.CC_STAT_TOP] + player[0][cv2.CC_STAT_HEIGHT] // 2
-        #             top_player[0][cv2.CC_STAT_HEIGHT] = player[0][cv2.CC_STAT_HEIGHT] // 2
-        #             print(i)
-        #     else:
-        #         if top_player[0][cv2.CC_STAT_TOP] < max(table_intersection_points[0][0],
-        #                                                 table_intersection_points[1][0]) \
-        #                 and top_player[0][cv2.CC_STAT_TOP] + top_player[0][cv2.CC_STAT_HEIGHT] > max(
-        #                 table_intersection_points[2][1], table_intersection_points[3][1]):
-        #             bottom_player[0][cv2.CC_STAT_TOP] = top_player[0][cv2.CC_STAT_TOP] + player[0][cv2.CC_STAT_HEIGHT] // 2
-        #             bottom_player[0][cv2.CC_STAT_HEIGHT] = player[0][cv2.CC_STAT_HEIGHT] // 2
-        #             print(i)
+
+
         for j, player in enumerate([top_player, bottom_player]):
             x = player[0][cv2.CC_STAT_LEFT]
             y = player[0][cv2.CC_STAT_TOP]
             w = player[0][cv2.CC_STAT_WIDTH]
             h = player[0][cv2.CC_STAT_HEIGHT]
             cv2.rectangle(frames[i], (x, y), (x + w, y + h), (255, 0, 0), 4)
+            cv2.circle(frames[i], (int(x + w / 2), int(y + h / 2)), 4, (255, 0, 255), -1)
             area.append(player[0][cv2.CC_STAT_AREA])
+        max_fore = -1
+        max_rect = []
 
-        # box = non_max_suppression_fast(np.array(box[1:]), 0.8)
-        # players_indexes_2 = [x[0] + 1 for x in
-        #                      heapq.nlargest(2, enumerate(box[1:]), key=lambda x: (x[1][2] - x[1][0]) * (x[1][3] - x[1][1]))]
-        # for p in players_indexes_2:
-        #     player = box[p]
-        #     x = player[cv2.CC_STAT_LEFT]
-        #     y = player[cv2.CC_STAT_TOP]
-        #     w = player[cv2.CC_STAT_WIDTH]
-        #     h = player[cv2.CC_STAT_HEIGHT]
-        #     cv2.rectangle(frames[i], (x, y), ( w, h), (0, 255, 0), 2)
+    whites_diffs = framewise_difference_segmentation(whites)
 
-        # box.append((x, y,x + w, y + h))
+    _,previous_labels, _, previous_centroids = cv2.connectedComponentsWithStats(whites_diffs[0][:, :, 0])
+    connections = []
+    connections_centroids = []
+    curr_labs = [previous_labels]
+    curr_centroids = [previous_centroids]
+    for i, whites_dif in enumerate(whites_diffs[1:]):
+        print(i)
+        i = i + 1
+        _,labels_current, _, centroids_current = cv2.connectedComponentsWithStats(whites_dif[:, :, 0])
+        xx = np.logical_and(whites_diffs[i], whites_diffs[i - 1])
+        current_labels_and_part = labels_current[xx[:,:,0]]
+        previous_labels_and_part = previous_labels[xx[:,:,0]]
+        new_conns = set(list(zip(previous_labels_and_part, current_labels_and_part)))
+        connections_tmp = []
+        added = [False for _ in range(len(connections))]
+        for new_conn in new_conns:
+            found = False
+
+            for z,conn in enumerate(connections):
+                if new_conn[0] == conn[-1] and not added[z]:
+                    connections[z].append(new_conn[1])
+                    # connections_centroids[z].append()
+                    found = True
+                    added[z] = True
+                    break
+            if not found:
+                connections_tmp.append(list(new_conn))
+        for z, conn in enumerate(connections):
+            if not added[z]:
+                conn.append(0)
+        connections+=connections_tmp
+
+        curr_labs.append(labels_current)
+        curr_centroids.append(centroids_current)
+        previous_labels = labels_current
+
+    for c in connections:
+        while len(c) < len(whites_diffs):
+            c.insert(0, 0)
+    previous_frame_centroids = None
     for i, frame in enumerate(frames):
+        current_frame_centroids = []
+        connections_map = np.zeros_like(curr_labs[i])
+        for j, l in enumerate(connections):
+            if l[i] != 0:
+                connections_map[curr_labs[i] == l[i]] = l[i]
+                if i+1 < len(frames):
+                    current_frame_centroids.append((curr_centroids[i][l[i]], curr_centroids[i+1][l[i+1]]))
         print(i, ratios[i])
         cv2.imshow("frame", frame)
+        # cv2.imshow("flows", flows[i])
 
-        segs = difference_segmentation[i]
-        seg_top = segs[:abs(
-                int(max(table_intersection_points[0][1], table_intersection_points[1][1])) - int(
-                    max(table_intersection_points[2][1], table_intersection_points[3][1]))
-            ) // 2 + int(max(table_intersection_points[0][1], table_intersection_points[1][1])),:,:]
-        cv2.imshow("top seg", seg_top)
-        seg_bot = segs[int(max(table_intersection_points[0][1], table_intersection_points[1][1])):, :, :]
-        cv2.imshow("top bottom", seg_bot)
+        cv2.imshow("foreground_masks", foreground_masks[i].astype(np.uint8) * 255)
+        cv2.imshow("whites", whites[i])
+        cv2.imshow("whites_diffs", whites_diffs[i])
+        xx = np.logical_and(whites_diffs[i], whites_diffs[i-1])
+
+
+        c = frames[i].copy()
+        c3 = frames[i].copy()
+        c[whites_diffs[i]==0] =0
+        c3[whites_diffs[i-1]==0] =0
+        c2 = frames[i].copy()
+        connections_only = frames[i].copy()
+        connections_only[connections_map ==0] = 0
+        for centroidss in current_frame_centroids:
+            a = int(centroidss[0][0]), int(centroidss[0][1])
+            b = int(centroidss[1][0]), int(centroidss[1][1])
+            dist = math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+            if dist <20:
+                cv2.line(connections_only, a, b, (255, 0, 0), 1)
+        c2[xx==False] =0
+        cv2.imshow("white_diff", c)
+        cv2.imshow("connections_only", connections_only)
+        cv2.imshow("white_diff[-1", c3)
+        cv2.imshow("whites_diffs_and", c2)
+
 
         cv2.waitKey()
