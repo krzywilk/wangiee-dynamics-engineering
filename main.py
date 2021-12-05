@@ -14,7 +14,7 @@ if __name__ == '__main__':
     table_intersection_points, centroid = detect_intersection_points(table_mask)
     print("players detection")
     difference_segmentation = framewise_difference_segmentation(frames)
-    players_detections = two_players_blob_detection(difference_segmentation, table_intersection_points)
+    players_detections, players_masks = two_players_blob_detection(difference_segmentation, table_intersection_points)
 
     processed_frames = draw_players_bboxes(frames, players_detections)
     processed_frames = draw_table_contours(processed_frames, table_intersection_points)
