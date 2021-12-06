@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import random
 
+
 def cropped_iou(crop_image1, crop_image2):
     x_max = crop_image1.shape[0]
     if x_max < crop_image2.shape[0]:
@@ -25,13 +26,10 @@ def cropped_iou(crop_image1, crop_image2):
     round((y_max - crop_image2.shape[1]) / 2):round((y_max - crop_image2.shape[1]) / 2) + crop_image2.shape[
         1]] += crop_image2.astype(bool)
     return (iou_tmp_img[
-    round((x_max - crop_image2.shape[0]) / 2):round((x_max - crop_image2.shape[0]) / 2) + crop_image2.shape[0],
-    round((y_max - crop_image2.shape[1]) / 2):round((y_max - crop_image2.shape[1]) / 2) + crop_image2.shape[
-        1]]==2).sum() / (y_max*x_max)
-
-
-
-
+            round((x_max - crop_image2.shape[0]) / 2):round((x_max - crop_image2.shape[0]) / 2) + crop_image2.shape[0],
+            round((y_max - crop_image2.shape[1]) / 2):round((y_max - crop_image2.shape[1]) / 2) + crop_image2.shape[
+                1]] == 2).sum() / (y_max * x_max)
+from collections import defaultdict
 
 if __name__ == "__main__":
     test_sample_1 = "../videos/sample_1.mp4"
@@ -65,6 +63,7 @@ if __name__ == "__main__":
     BackgroundSubtractorGMG = cv2.bgsegm.createBackgroundSubtractorGMG(initializationFrames=2, decisionThreshold=0.99)
     substr = []
     import time
+
     start = time.time()
     for i, frame in enumerate(frames):
         white_frame = frame.copy()
@@ -75,7 +74,7 @@ if __name__ == "__main__":
         mostly_whites.append(white_frame)
 
     stop = time.time()
-    print(stop-start)
+    print(stop - start)
     connections = []
     differences_intersection_previous = np.zeros_like(frames[0])
     _, previous_labels, _, previous_centroids = cv2.connectedComponentsWithStats(difference_segmentation[0][:, :, 0])
@@ -83,73 +82,80 @@ if __name__ == "__main__":
     curr_centroids = [previous_centroids]
     prev_window = 4
     centroid_previous = []
-    centroid_colors = [(int(random.random()*256),int(random.random()*256),int(random.random()*256)) for _ in range(prev_window)]
+    centroid_colors = [(int(random.random() * 256), int(random.random() * 256), int(random.random() * 256)) for _ in
+                       range(prev_window)]
+    previous_labels_number, previous_labels, previous_stats, previous_centroids = cv2.connectedComponentsWithStats(
+        substr[- 1])
+    chains = []
     for i, frame in enumerate(frames):
         if i == 0:
             continue
 
+        both_subst = np.zeros_like(frame)
+        both_subst[substr[i] > 0] = [0, 255, 0]
+        both_subst[substr[i - 1] > 0] = [255, 0, 0]
 
+        current_labels_number, current_labels, current_stats, current_centroids = cv2.connectedComponentsWithStats(
+            substr[i])
 
-
-
-        both_subst =  np.zeros_like(frame)
-        both_subst[substr[i] > 0] = [0,255,0]
-        both_subst[substr[i-1] > 0] = [255,0,0]
-
-        current_labels_number, current_labels, current_stats, current_centroids = cv2.connectedComponentsWithStats(substr[i])
-        previous_labels_number, previous_labels, previous_stats, previous_centroids = cv2.connectedComponentsWithStats(substr[i-1])
         matched_centroids = []
         matched_inds = []
-
-        for prev_ind,previous_single_centroid in enumerate(previous_centroids[1:], start=1):
-            cosest = 999999999
-            cosest_val = [-1,-1]
-            cosest_ind=-1
-
-            for index, current_single_centroid in enumerate(current_centroids[1:], start=1):
-                dist = math.hypot(current_single_centroid[0] - previous_single_centroid[0], current_single_centroid[1] - previous_single_centroid[1])
-                if dist< cosest:
-                    cosest_val = current_single_centroid
-                    cosest = dist
-                    cosest_ind = index
-            if cosest_ind != -1:
-                if cosest_ind in matched_inds:
-                    for z, i_tmp in enumerate(matched_centroids):
-                        if i_tmp[-3] == cosest_ind:
-                            if i == 62 and prev_ind == 3 and cosest_ind == 7:
-                                print()
+        prev_matches = defaultdict(list)
+        all_matches = []
 
 
-                            bbox_curr_candidate = current_labels[current_stats[cosest_ind][1]:current_stats[cosest_ind][1]+current_stats[cosest_ind][3], current_stats[cosest_ind][0]:current_stats[cosest_ind][0]+current_stats[cosest_ind][2]]
-                            try:
-                                bbox_prev_closest = previous_labels[previous_stats[matched_centroids[z][4]][1]:previous_stats[matched_centroids[z][4]][1]+previous_stats[matched_centroids[z][4]][3], previous_stats[matched_centroids[z][4]][0]:previous_stats[matched_centroids[z][4]][0]+previous_stats[matched_centroids[z][4]][2]]
-                            except:
-                                print()
-                            bbox_prev = previous_labels[previous_stats[prev_ind][1]:previous_stats[prev_ind][1]+previous_stats[prev_ind][3], previous_stats[prev_ind][0]:previous_stats[prev_ind][0]+previous_stats[prev_ind][2]]
 
-                            candidate_iou = cropped_iou(bbox_prev, bbox_prev_closest)
-                            closest_iou = cropped_iou(bbox_curr_candidate, bbox_prev_closest)
-                            if cosest*(1-closest_iou) < i_tmp[-2]*(1-candidate_iou):
-                                del matched_centroids[z]
-                                matched_centroids.append((previous_single_centroid, cosest_val, cosest_ind, cosest, prev_ind))
-                                break
+        for current_index, current_single_centroid in enumerate(current_centroids[1:], start=1):
+            min_dist = 999999
+            closest_centroid = [-1,-1]
+            closest_index = -1
+            bbox_current_blob = current_labels[
+                                current_stats[current_index][1]:current_stats[current_index][1] +
+                                                                current_stats[current_index][3],
+                                current_stats[current_index][0]:current_stats[current_index][0] +
+                                                                current_stats[current_index][2]]
+            for previous_index, previous_single_centroid in enumerate(previous_centroids[1:], start=1):
+                dist = math.hypot(current_single_centroid[0] - previous_single_centroid[0],
+                                  current_single_centroid[1] - previous_single_centroid[1])
+                bbox_prev_blob = previous_labels[
+                                    previous_stats[previous_index][1]:previous_stats[previous_index][1] +
+                                                                      previous_stats[previous_index][3],
+                                    previous_stats[previous_index][0]:previous_stats[previous_index][0] +
+                                                                      previous_stats[previous_index][2]]
+                iou = cropped_iou(bbox_current_blob, bbox_prev_blob)
+                if iou >0:
+                    full_distance = (1/iou) * dist
                 else:
-                    matched_inds.append(cosest_ind)
-                    if i == 62 and prev_ind == 3 and cosest_ind == 7:
-                        print()
-                    matched_centroids.append((previous_single_centroid, cosest_val, cosest_ind, cosest, prev_ind))
+                    full_distance = 999999
+                if min_dist > full_distance:
+                    closest_centroid = previous_single_centroid
+                    min_dist = full_distance
+                    closest_index = previous_index
+            if closest_index!=-1:
+                prev_matches[closest_index].append((current_single_centroid, closest_centroid, current_index, min_dist, closest_index))
 
-
-
-
-        for start_point, end_point,curr_ind,_,prev_ind in matched_centroids:
+        for key in prev_matches:
+            closest = prev_matches[key][0]
+            for element in prev_matches[key][1:]:
+                if closest[3] > element[3]:
+                    closest = element
+            matched_centroids.append(closest)
+            matched = False
+            for chain in chains:
+                if np.all(chain[-1][0] == closest[1]):
+                    chain.append((closest[0], closest[2], closest[4]))
+                    matched=True
+                    break
+            if not matched:
+                chains.append([(closest[1], closest[2], closest[4]), (closest[0], closest[2], closest[4])])
+        for start_point, end_point, curr_ind, _, prev_ind in matched_centroids:
             cv2.line(both_subst, (int(start_point[0]), int(start_point[1])),
                      (int(end_point[0]), int(end_point[1])), (255, 255, 255), 1)
             cv2.putText(both_subst, str(prev_ind),
                         (int(start_point[0]), int(start_point[1])),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         1,
-                        (255,255,255),
+                        (255, 255, 255),
                         1,
                         1)
             cv2.putText(both_subst, str(curr_ind),
@@ -164,19 +170,30 @@ if __name__ == "__main__":
             cv2.circle(both_subst, (int(centroid[0]), int(centroid[1])), 2, (0, 255, 255), -1)
             # cv2.circle(both_subst, (int(centroid[0]), int(centroid[1])), 20, (0, 255, 255), 1)
         for cent_number, centroid in enumerate(current_centroids[1:], start=1):
-            cv2.circle(both_subst, (int(centroid[0]), int(centroid[1])), 2, (255,0 , 255), -1)
+            cv2.circle(both_subst, (int(centroid[0]), int(centroid[1])), 2, (255, 0, 255), -1)
             # cv2.circle(both_subst, (int(centroid[0]), int(centroid[1])), 20, (255,0 , 255), 1)
-
-
 
         cv2.imshow("curr", frame)
         cv2.imshow("mostly_whites", mostly_whites[i])
         cv2.imshow("players_masks", players_masks[i])
         cv2.imshow("substr1", substr[i])
         cv2.imshow("both_subst", both_subst)
-
+        previous_labels_number, previous_labels, previous_stats, previous_centroids = current_labels_number, current_labels, current_stats, current_centroids
         print(i)
         cv2.waitKey()
-        if i ==61:
+        if i == 61:
             print()
 
+# bbox_curr_candidate = current_labels[
+#                       current_stats[cosest_ind][1]:current_stats[cosest_ind][1] + current_stats[cosest_ind][3],
+#                       current_stats[cosest_ind][0]:current_stats[cosest_ind][0] + current_stats[cosest_ind][2]]
+# try:
+#     bbox_prev_closest = previous_labels[
+#                         previous_stats[matched_centroids[z][4]][1]:previous_stats[matched_centroids[z][4]][1] +
+#                                                                    previous_stats[matched_centroids[z][4]][3],
+#                         previous_stats[matched_centroids[z][4]][0]:previous_stats[matched_centroids[z][4]][0] +
+#                                                                    previous_stats[matched_centroids[z][4]][2]]
+# except:
+#     print()
+# bbox_prev = previous_labels[previous_stats[prev_ind][1]:previous_stats[prev_ind][1] + previous_stats[prev_ind][3],
+#             previous_stats[prev_ind][0]:previous_stats[prev_ind][0] + previous_stats[prev_ind][2]]
