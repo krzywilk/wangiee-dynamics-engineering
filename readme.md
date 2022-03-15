@@ -51,15 +51,10 @@ The result of the algorithm are points representing the coordinates of corners o
 ### Lines detection
 
 Table lines detection is based on the Probabilistic Hough Transform. Successive frames are transformed and detected lines are saved in the mask. When iteration is done, the mask contains the table lines and excess lines detected outside the table.
-
-<div>
-
-![Alt text](resources/readme/lines_table.gif?raw=true "table")
-</div>
   
 <p align="center">
 
-  <img src="resources/readme/base_detections.gif?raw=true" alt="animated" />
+  <img src="resources/readme/lines_table.gif?raw=true" alt="animated" />
 
 </p>
 
