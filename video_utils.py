@@ -12,7 +12,7 @@ def load_video(path):
     return res
 
 
-def draw_players_bboxes(frames, players_detections, diff_vals):
+def draw_players_bboxes(frames, players_detections):
     result_frames = []
     for i,f in enumerate(frames):
         tmp_frame = f.copy()

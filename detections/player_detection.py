@@ -24,42 +24,51 @@ def framewise_difference_segmentation(frames, frame_delta_threshold=10, opening_
         previous_frame = frame
     return result_masks
 
-
-def two_players_blob_detection(difference_segmentation_masks, ):
+def two_players_blob_detection(difference_segmentation_masks, table_intersection_points):
     result = []
-    diff_vals = []
+    players_masks = []
     for i, mask in enumerate(difference_segmentation_masks):
         if i == 0:
             continue
-        output = cv2.connectedComponentsWithStats(
-            mask[:, :, 0])
+        players_mask = np.zeros_like(mask[:,:,0])
+        output_bottom = cv2.connectedComponentsWithStats(
+            mask[int(max(table_intersection_points[0][1], table_intersection_points[1][1])):, :, 0])
+        (numLabels, labels, stats, centroids) = output_bottom
+        bottom_player = [x[0] + 1 for x in
+                         heapq.nlargest(1, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
+        labels[labels!=bottom_player[0]] = 0
+        # cv2.imshow("",mask[int(max(table_intersection_points[0][1], table_intersection_points[1][1])):, :, 0])
+        # cv2.imshow("labels",labels/labels.max())
 
-        (numLabels, labels, stats, centroids) = output
-        players_indexes = [x[0] + 1 for x in
-                           heapq.nlargest(2, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
-        if len(players_indexes) < 2:  # TODO: quick fix
-            result.append(result[-1])
-        else:
-            if centroids[players_indexes[0]][1] < centroids[players_indexes[1]][1]:
-                top_player = (stats[players_indexes[0]], centroids[players_indexes[0]])
-                bottom_player = (stats[players_indexes[1]], centroids[players_indexes[1]])
-            else:
-                top_player = (stats[players_indexes[1]], centroids[players_indexes[1]])
-                bottom_player = (stats[players_indexes[0]], centroids[players_indexes[0]])
-            result.append((top_player, bottom_player))
+        players_mask[int(max(table_intersection_points[0][1], table_intersection_points[1][1])):] = labels
+        # cv2.imshow("labels2", players_mask / players_mask.max())
+        # cv2.waitKey()
+        bottom_player = (stats[bottom_player[0]], centroids[bottom_player[0]])
+        bottom_player[0][cv2.CC_STAT_TOP] = bottom_player[0][cv2.CC_STAT_TOP] + int(
+            max(table_intersection_points[0][1], table_intersection_points[1][1]))
+        bottom_player[1][1] = bottom_player[1][1] + int(
+            max(table_intersection_points[0][1], table_intersection_points[1][1]))
 
-        x = top_player[0][cv2.CC_STAT_LEFT]
-        y = top_player[0][cv2.CC_STAT_TOP]
-        w = top_player[0][cv2.CC_STAT_WIDTH]
-        h = top_player[0][cv2.CC_STAT_HEIGHT]
-        top_sum = mask[y:y + w, x:x + h]
-        x = bottom_player[0][cv2.CC_STAT_LEFT]
-        y = bottom_player[0][cv2.CC_STAT_TOP]
-        w = bottom_player[0][cv2.CC_STAT_WIDTH]
-        h = bottom_player[0][cv2.CC_STAT_HEIGHT]
-        bottom_sum = mask[y:y + w, x:x + h]
-        diff_vals.append((top_sum.sum(),bottom_sum.sum()))
-    return [result[0]] + result, [diff_vals[0]] + diff_vals
+
+        output_top = cv2.connectedComponentsWithStats(
+            mask[:abs(
+                int(max(table_intersection_points[0][1], table_intersection_points[1][1])) - int(
+                    max(table_intersection_points[2][1], table_intersection_points[3][1]))
+            ) // 2 + int(max(table_intersection_points[0][1], table_intersection_points[1][1])), :, 0])
+        (numLabels, labels, stats, centroids) = output_top
+        top_player = [x[0] + 1 for x in
+                      heapq.nlargest(1, enumerate(stats[1:, cv2.CC_STAT_AREA]), key=lambda x: x[1])]
+        labels[labels != top_player[0]] = 0
+        players_mask[:abs(
+                int(max(table_intersection_points[0][1], table_intersection_points[1][1])) - int(
+                    max(table_intersection_points[2][1], table_intersection_points[3][1]))
+            ) // 2 + int(max(table_intersection_points[0][1], table_intersection_points[1][1]))][labels == top_player[0]] = top_player[0]
+        top_player = (stats[top_player[0]], centroids[top_player[0]])
+        result.append((top_player, bottom_player))
+
+        players_masks.append(players_mask)
+
+    return [result[0]] + result, [players_masks[0]]+players_masks
 
 
 def player_backwards_bbox_tracking(players_detections, frames):  # TODO: do not work, main idea only
