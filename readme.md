@@ -28,4 +28,7 @@ Temporarily there is no specific script configuration. An example usage is in th
 |:------------------------------------------------------------------:|:------------------------------------------------------------------------:|
 | ![Alt text](resources/readme/player_top.gif?raw=true "top player") | ![Alt text](resources/readme/player_bottom.gif?raw=true "bottom player") |
 
+
+![Alt text](resources/readme/table.gif?raw=true "table")
+
 </div>
