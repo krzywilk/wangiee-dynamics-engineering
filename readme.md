@@ -1,6 +1,8 @@
 # Table tennis entities detection
-![Alt text](resources/readme/base_detections.gif?raw=true?style=centerme "table tennis detections")
 
+<p align="center">
+  <img src="resources/readme/base_detections.gif?raw=true" alt="animated" />
+</p>
 ## Introduction
 The algorithm is designed to detect the elements of table tennis gameplay.
 The test dataset contains videos recorded from a static position. The camera is always behind the back of one of the players.
