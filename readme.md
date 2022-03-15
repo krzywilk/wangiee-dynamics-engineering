@@ -67,7 +67,7 @@ On the finished mask, connected components are detected, and the component close
 </details>
 
 <details>
-<summary> Table mask corner detections</summary>
+<summary> Table mask corners detections</summary>
 
 ### Lines theta and rho calculation
 <p align="center">
