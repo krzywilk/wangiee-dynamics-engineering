@@ -69,7 +69,7 @@ On the finished mask, connected components are detected, and the component close
 <details>
 <summary> Table mask corner detections</summary>
 
-### Lines parameters detection
+### Lines theta and rho calculation
 <p align="center">
   <img src="resources/readme/lines_mask.gif?raw=true" alt="animated" />
 </p>
@@ -103,7 +103,7 @@ The lines are clustered due to the angle of inclination. Clustering is done by t
 </p>
 
 #### Intersections
-All points of intersection between the horizontal and vertical lines are calculated basis on theta i rho of lines.
+All points of intersection between the horizontal and vertical lines are calculated basis on theta and rho of lines.
 
 <p align="center">
   <img src="resources/readme/intersections.jpg?raw=true" alt="animated" />
