@@ -95,18 +95,33 @@ The lines are clustered due to the angle of inclination. Clustering is done by t
 
 
 ### Lines intersection on a table
-![Alt text](resources/readme/intersections.gif?raw=true "hough_line_transform")
+
+<p align="center">
+  <img src="resources/readme/intersections.gif?raw=true" alt="animated" />
+</p>
+
 #### Intersections
 All points of intersection between the horizontal and vertical lines are calculated basis on theta i rho of lines.
-![Alt text](resources/readme/intersections.jpg?raw=true "hough_line_transform_filtered_clustered")
+
+<p align="center">
+  <img src="resources/readme/intersections.jpg?raw=true" alt="animated" />
+</p>
+
 
 #### Intersections clustering
 The Intersections are clustered due to the position on the Cartesian plane. Clustering is done by the DBSCAN algorithm.
-![Alt text](resources/readme/intersections_clusters.jpg?raw=true "hough_line_transform_filtered_clustered")
+
+<p align="center">
+  <img src="resources/readme/intersections_clusters.jpg?raw=true" alt="animated" />
+</p>
+
 
 #### Intersections clusters centroids
 Intersection cluster centroids are calculated as the average of all existing points in the cluster.
-![Alt text](resources/readme/intersections_centroids.jpg?raw=true "hough_line_transform_filtered_clustered")
+
+<p align="center">
+  <img src="resources/readme/intersections_centroids.jpg?raw=true" alt="animated" />
+</p>
 
 </details>
 
