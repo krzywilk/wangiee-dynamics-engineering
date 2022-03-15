@@ -60,7 +60,7 @@ Table lines detection is based on the Probabilistic Hough Transform. Successive 
 
 </p>
 
-### Choosing the right contours
+#### Choosing the right contours
 On the finished mask, connected components are detected, and the component closest to the center of the image is selected.
 
 <p align="center">
@@ -69,7 +69,7 @@ On the finished mask, connected components are detected, and the component close
 
 </p>
 
-### Table line detection
+#### Table line detection
 
 
 </details>
