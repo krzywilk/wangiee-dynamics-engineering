@@ -56,6 +56,12 @@ Table lines detection is based on the Probabilistic Hough Transform. Successive 
 
 ![Alt text](resources/readme/lines_table.gif?raw=true "table")
 </div>
+  
+<p align="center">
+
+  <img src="resources/readme/base_detections.gif?raw=true" alt="animated" />
+
+</p>
 
 
 </details>
