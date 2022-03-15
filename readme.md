@@ -22,10 +22,10 @@ Temporarily there is no specific script configuration. An example usage is in th
 </details>
 
 ## Output
-<center>
+<div align="center">
 
 |                             Top player                             |                              Bottom player                               |
 |:------------------------------------------------------------------:|:------------------------------------------------------------------------:|
 | ![Alt text](resources/readme/player_top.gif?raw=true "top player") | ![Alt text](resources/readme/player_bottom.gif?raw=true "bottom player") |
 
-</center>
+</div>
