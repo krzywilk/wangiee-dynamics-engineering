@@ -60,6 +60,8 @@ Table lines detection is based on the Probabilistic Hough Transform. Successive 
 On the finished mask, connected components are detected, and the component closest to the center of the image is selected.
 
 <p align="center">
+  <img src="resources/readme/lines_table_center.gif?raw=true" alt="animated" />
+</p>
 
 
 </details>
