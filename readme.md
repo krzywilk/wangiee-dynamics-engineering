@@ -53,11 +53,7 @@ The result of the algorithm are points representing the coordinates of corners o
 Table lines detection is based on the Probabilistic Hough Transform. Successive frames are transformed and detected lines are saved in the mask. When iteration is done, the mask contains the table lines and excess lines detected outside the table.
 
 <p align="center">
-
-
   <img src="resources/readme/lines_table.gif?raw=true" alt="animated" />
-
-
 </p>
 
 ### Choosing the right contours
@@ -72,19 +68,30 @@ On the finished mask, connected components are detected, and the component close
 <summary> Table mask corner detections</summary>
 
 ### Lines parameters detection
-![Alt text](resources/readme/lines_mask.gif?raw=true "hough_line_transform")
+<p align="center">
+  <img src="resources/readme/lines_mask.gif?raw=true" alt="animated" />
+</p>
+
 #### General line detection
 Mask lines detection is based on Hough Line Transform.
 
-![Alt text](resources/readme/hough_line_transform.jpg?raw=true "hough_line_transform")
+<p align="center">
+  <img src="resources/readme/hough_line_transform.jpg?raw=true" alt="animated" />
+</p>
+
 #### Lines filtering
 The algorithm filters redundant lines which rho and theta values ​​are close to each other.
 
-![Alt text](resources/readme/hough_line_transform_filtered.jpg?raw=true "hough_line_transform_filtered")
+<p align="center">
+  <img src="resources/readme/hough_line_transform_filtered.jpg?raw=true" alt="animated" />
+</p>
+
 #### Lines clustering
 The lines are clustered due to the angle of inclination. Clustering is done by the DBSCAN algorithm. Outlier lines are removed from lines list.
 
-![Alt text](resources/readme/hough_line_transform_filtered_clustered.jpg?raw=true "hough_line_transform_filtered_clustered")
+<p align="center">
+  <img src="resources/readme/hough_line_transform_filtered_clustered.jpg?raw=true" alt="animated" />
+</p>
 
 
 ### Lines intersection on a table
