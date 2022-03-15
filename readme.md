@@ -46,7 +46,7 @@ The result of the algorithm are points representing the coordinates of corners o
 <details>
 <summary> Table contours detection </summary>
 
-### Lines detection
+### Table lines detection
 
 ### Lines detection
 
