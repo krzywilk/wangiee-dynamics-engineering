@@ -1,5 +1,5 @@
 # Table tennis entities detection
-![Alt text](resources/readme/base_detections.gif?raw=true "table tennis detections")
+![Alt text](resources/readme/base_detections.gif?raw=true?style=centerme "table tennis detections")
 
 ## Introduction
 The algorithm is designed to detect the elements of table tennis gameplay.
