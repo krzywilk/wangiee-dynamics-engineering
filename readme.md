@@ -127,6 +127,8 @@ Intersection cluster centroids are calculated as the average of all existing poi
 
 </details>
 
+</details>
+
 <details>
 <summary><b> Players detection </b></summary>
 
