@@ -127,6 +127,41 @@ Intersection cluster centroids are calculated as the average of all existing poi
 
 </details>
 
+<details>
+<summary><b> Players detection </b></summary>
+
+### Difference segmentation masks 
+
+Due to the fact that table tennis is very dynamic, it is possible to create a mask of the differences between the frames to target the most dynamic elements of the image
+
+<p align="center">
+
+  <img src="resources/readme/difference_mask.gif?raw=true" alt="animated" />
+
+</p>
+
+
+### Most dynamic elements detection
+
+### Regions of interest
+Thanks to the preserved perspective, it is possible to separate the parts of the image where the lower player and the upper player can be located, the detection takes place separately on both parts of the image.
+
+<p align="center">
+
+  <img src="resources/readme/difference_mask_top_bottom.gif?raw=true" alt="animated" />
+
+</p>
+
+### Players difference masks
+Separate difference mask elements are detected using the connected components algorithm. The largest masks on separate regions of interest are considered player masks.
+
+<p align="center">
+
+  <img src="resources/readme/difference_mask_top_bottom_connected.gif?raw=true" alt="animated" />
+
+</p>
+
+
 
 
 </details>
