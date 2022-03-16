@@ -53,25 +53,80 @@ The result of the algorithm are points representing the coordinates of corners o
 Table lines detection is based on the Probabilistic Hough Transform. Successive frames are transformed and detected lines are saved in the mask. When iteration is done, the mask contains the table lines and excess lines detected outside the table.
 
 <p align="center">
-
-
   <img src="resources/readme/lines_table.gif?raw=true" alt="animated" />
-
-
 </p>
 
 #### Choosing the right contours
 On the finished mask, connected components are detected, and the component closest to the center of the image is selected.
 
 <p align="center">
-
   <img src="resources/readme/lines_table_center.gif?raw=true" alt="animated" />
-
 </p>
-
-### Table lines intersection detection
 
 
 </details>
+
+<details>
+<summary> Table mask corners detections</summary>
+
+### Lines theta and rho calculation
+<p align="center">
+  <img src="resources/readme/lines_mask.gif?raw=true" alt="animated" />
+</p>
+
+#### General line detection
+Mask lines detection is based on Hough Line Transform.
+
+<p align="center">
+  <img src="resources/readme/hough_line_transform.jpg?raw=true" alt="animated" />
+</p>
+
+#### Lines filtering
+The algorithm filters redundant lines which rho and theta values ​​are close to each other.
+
+<p align="center">
+  <img src="resources/readme/hough_line_transform_filtered.jpg?raw=true" alt="animated" />
+</p>
+
+#### Lines clustering
+The lines are clustered due to the angle of inclination. Clustering is done by the DBSCAN algorithm. Outlier lines are removed from lines list.
+
+<p align="center">
+  <img src="resources/readme/hough_line_transform_filtered_clustered.jpg?raw=true" alt="animated" />
+</p>
+
+
+### Lines intersection on a table
+
+<p align="center">
+  <img src="resources/readme/intersections.gif?raw=true" alt="animated" />
+</p>
+
+#### Intersections
+All points of intersection between the horizontal and vertical lines are calculated basis on theta and rho of lines.
+
+<p align="center">
+  <img src="resources/readme/intersections.jpg?raw=true" alt="animated" />
+</p>
+
+
+#### Intersections clustering
+The Intersections are clustered due to the position on the Cartesian plane. Clustering is done by the DBSCAN algorithm.
+
+<p align="center">
+  <img src="resources/readme/intersections_clusters.jpg?raw=true" alt="animated" />
+</p>
+
+
+#### Intersections clusters centroids
+Intersection cluster centroids are calculated as the average of all existing points in the cluster.
+
+<p align="center">
+  <img src="resources/readme/intersections_centroids.jpg?raw=true" alt="animated" />
+</p>
+
+</details>
+
+
 
 </details>
